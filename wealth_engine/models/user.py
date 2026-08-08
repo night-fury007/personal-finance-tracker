@@ -13,6 +13,7 @@ class User(SQLModel, table=True):
     email: str = Field(unique=True, index=True, max_length=255)
     password_hash: str = Field(max_length=255)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    is_active: bool = Field(default=True)
 
     expenses: List["Expense"] = Relationship(back_populates="user", sa_relationship_kwargs={"lazy": "selectin"})
     investments: List["Investment"] = Relationship(back_populates="user", sa_relationship_kwargs={"lazy": "selectin"})

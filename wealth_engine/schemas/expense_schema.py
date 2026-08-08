@@ -13,6 +13,15 @@ class ExpenseCreate(BaseModel):
     subcategory_id: Optional[int] = Field(default=None)
 
 
+class ExpenseUpdate(BaseModel):
+    amount: Optional[Decimal] = Field(default=None, gt=0)
+    currency: Optional[str] = Field(default=None, max_length=3)
+    expense_date: Optional[date] = Field(default=None)
+    description: Optional[str] = Field(default=None, max_length=255)
+    category_id: Optional[int] = Field(default=None)
+    subcategory_id: Optional[int] = Field(default=None)
+
+
 class ExpenseResponse(ExpenseCreate):
     id: int
     user_id: int
