@@ -4,7 +4,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt
 from jose.exceptions import JWTError
-from sqlmodel import Session
+from sqlmodel import Session, select
 from wealth_engine.database import get_db
 from wealth_engine.models import User
 from wealth_engine.core.security import SECRET_KEY, ALGORITHM
@@ -17,7 +17,7 @@ def get_current_user(
         db: Session = Depends(get_db)
 ) -> Optional[Any]:
     """
-    Decodes JWT token and retrieves the raw user.
+    Decodes the JWT token and fetches the raw User database record using SQLModel's native .exec().
     """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -26,16 +26,16 @@ def get_current_user(
     )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str = payload.get("sub")
+        email: str | None = payload.get("sub")
         if email is None:
             raise credentials_exception
-    except JWTError:
+    except (JWTError, Exception):
         raise credentials_exception
 
-    statement = db.query(User).filter(User.email == email)  # or select equivalent
-    # Alternatively using select(User).where(User.email == email)
-    from sqlmodel import select
-    user = db.exec(select(User).where(User.email == email)).first()
+    # Using SQLModel's native exec() with select()
+    statement = select(User).where(User.email == email)
+    user = db.exec(statement).first()
+
     if user is None:
         raise credentials_exception
     return user
@@ -44,7 +44,8 @@ def get_current_user(
 class AuthenticatedUser:
     """
     Strict domain wrapper for an authenticated tenant user.
-    Guarantees that `id` is strictly a non-nullable integer to static analyzers.
+    Guarantees non-nullable types (`id: int`, `email: str`, `is_active: bool`)
+    to satisfy static analysis tools completely.
     """
 
     def __init__(self, user: User):
@@ -53,7 +54,7 @@ class AuthenticatedUser:
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid user session: ID missing"
             )
-        self.id: int = user.id  # Strictly enforced int!
+        self.id: int = user.id
         self.email: str = user.email
         self.is_active: bool = user.is_active
         self.raw_user: User = user
