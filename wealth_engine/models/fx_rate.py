@@ -1,7 +1,8 @@
-from sqlmodel import SQLModel, Field
-from typing import Optional
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 from decimal import Decimal
+from typing import Optional
+
+from sqlmodel import SQLModel, Field
 
 
 class FXRate(SQLModel, table=True):
@@ -9,7 +10,8 @@ class FXRate(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     rate_date: date = Field(index=True, unique=True)
-    base_currency: str = Field(default="USD", max_length=3)
-    target_currency: str = Field(default="INR", max_length=3)
+    base_currency: str = Field(max_length=3)
+    target_currency: str = Field(max_length=3)
     rate: Decimal = Field()
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field()
+    updated_at: datetime = Field()

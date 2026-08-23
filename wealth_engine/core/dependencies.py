@@ -1,24 +1,17 @@
-from typing import Any, Optional
-
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt
 from jose.exceptions import JWTError
-from sqlmodel import Session, select
+from sqlmodel import Session
+
+from wealth_engine.core.security import SECRET_KEY, ALGORITHM
 from wealth_engine.database import get_db
 from wealth_engine.models import User
-from wealth_engine.core.security import SECRET_KEY, ALGORITHM
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 
-def get_current_user(
-        token: str = Depends(oauth2_scheme),
-        db: Session = Depends(get_db)
-) -> Optional[Any]:
-    """
-    Decodes the JWT token and fetches the raw User database record using SQLModel's native .exec().
-    """
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> type[User]:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -26,16 +19,13 @@ def get_current_user(
     )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str | None = payload.get("sub")
-        if email is None:
+        user_id: str = payload.get("sub")
+        if user_id is None:
             raise credentials_exception
-    except (JWTError, Exception):
+    except JWTError:
         raise credentials_exception
 
-    # Using SQLModel's native exec() with select()
-    statement = select(User).where(User.email == email)
-    user = db.exec(statement).first()
-
+    user = db.get(User, user_id)
     if user is None:
         raise credentials_exception
     return user
@@ -54,7 +44,7 @@ class AuthenticatedUser:
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid user session: ID missing"
             )
-        self.id: int = user.id
+        self.id: str = user.id
         self.email: str = user.email
         self.is_active: bool = user.is_active
         self.raw_user: User = user

@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+import uuid
 from typing import cast
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
@@ -13,7 +15,7 @@ router = APIRouter(prefix="/api/v1/auth", tags=["Authentication"])
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def register_user(user_data: UserCreate, db: Session = Depends(get_db)) -> User:
     """
-    Registers a new tenant user in the system.
+    Registers a new tenant user in the system with a unique string ID and timestamps.
     """
     existing_user = db.exec(select(User).where(User.email == user_data.email)).first()
     if existing_user:
@@ -23,7 +25,19 @@ def register_user(user_data: UserCreate, db: Session = Depends(get_db)) -> User:
         )
 
     hashed_password = get_password_hash(user_data.password)
-    new_user = User(email=user_data.email, password_hash=hashed_password)
+    now = datetime.now(timezone.utc)
+
+    # Automatically generate a unique string ID using UUID v4
+    new_user_id = str(uuid.uuid4())
+
+    new_user = User(
+        id=new_user_id,
+        email=user_data.email,
+        password_hash=hashed_password,
+        created_at=now,
+        updated_at=now,
+        is_active=True
+    )
 
     db.add(new_user)
     db.commit()
@@ -38,8 +52,8 @@ def login_for_access_token(
         db: Session = Depends(get_db)
 ) -> dict:
     """
-    Authenticates user credentials and returns a secure JWT access token.
-    Uses OAuth2 standard form fields (username/password).
+    Authenticates user credentials and returns a secure JWT access token
+    containing the user's string ID in the 'sub' field.
     """
     statement = select(User).where(User.email == form_data.username)
     db_result = db.exec(statement).first()
@@ -61,5 +75,6 @@ def login_for_access_token(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    access_token = create_access_token(data={"sub": user.email})
+    # Encode user.id in the JWT payload so token validation maps directly to the primary key string
+    access_token = create_access_token(data={"sub": user.id})
     return {"access_token": access_token, "token_type": "bearer"}

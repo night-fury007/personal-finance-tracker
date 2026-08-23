@@ -7,7 +7,7 @@ from starlette.responses import JSONResponse
 
 from wealth_engine.core.exceptions import WealthEngineException
 from wealth_engine.database import init_db, get_db
-from wealth_engine.models import Category
+from wealth_engine.models import User
 from wealth_engine.routers import auth, expenses, investments, income, accounts, analytics, reports
 
 
@@ -65,13 +65,13 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
 
 
 # Mount Routers
-app.include_router(auth.router)
-app.include_router(income.router)
+# app.include_router(auth.router)
+# app.include_router(income.router)
 app.include_router(accounts.router)
-app.include_router(investments.router)
-app.include_router(expenses.router)
-app.include_router(analytics.router)
-app.include_router(reports.router)
+# app.include_router(investments.router)
+# app.include_router(expenses.router)
+# app.include_router(analytics.router)
+# app.include_router(reports.router)
 
 
 @app.get("/health", tags=["System"])
@@ -80,7 +80,7 @@ def health_check(db: Session = Depends(get_db)) -> dict:
     System health check endpoint verifying database connectivity.
     """
     # Execute a lightweight query to ensure the database session is actively functional
-    db.exec(select(Category)).first()
+    db.exec(select(User)).first()
 
     return {
         "status": "healthy",

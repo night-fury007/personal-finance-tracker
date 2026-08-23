@@ -3,14 +3,15 @@ from typing import Optional
 from datetime import date
 from decimal import Decimal
 
+from wealth_engine.schemas.custom_types import CurrencyDecimal
+
 
 class ExpenseCreate(BaseModel):
-    amount: Decimal = Field(gt=0, description="Expense amount (must be greater than 0)")
-    currency: str = Field(default="INR", max_length=3, description="Currency code (e.g., INR, USD)")
+    amount: CurrencyDecimal = Field(default=Decimal("0.00"))
+    currency: str = Field(max_length=3)
     expense_date: date
     description: Optional[str] = Field(default=None, max_length=255)
     category_id: int
-    subcategory_id: Optional[int] = Field(default=None)
 
 
 class ExpenseUpdate(BaseModel):
