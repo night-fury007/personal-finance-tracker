@@ -1,17 +1,17 @@
+from decimal import Decimal
+from typing import Optional
+
 from pydantic import BaseModel, Field, ConfigDict
 from pydantic.alias_generators import to_camel
-from typing import Optional, List
-from decimal import Decimal
 
-from wealth_engine.common.utils import CustomDateTimeIST
-from wealth_engine.models import AccountCategory
+from wealth_engine.core.types import CustomDateTimeIST
 from wealth_engine.schemas.custom_types import CurrencyDecimal
 
 
 class CamelCaseBaseModel(BaseModel):
     model_config = ConfigDict(
         alias_generator=to_camel,  # Automatically converts snake_case <-> camelCase for both input and output
-        populate_by_name=True,  # Allows internal python code to still use snake_case if needed
+        populate_by_name=True,  # Allows internal Python code to still use snake_case if needed
         from_attributes=True,
     )
 
@@ -25,6 +25,7 @@ class AccountCreate(CamelCaseBaseModel):
 
 
 class AccountUpdate(CamelCaseBaseModel):
+    public_account_id: str
     account_name: Optional[str] = Field(default=None, max_length=100)
     category_id: Optional[int] = Field(default=None)
     currency: Optional[str] = Field(default=None, max_length=3)
@@ -33,7 +34,7 @@ class AccountUpdate(CamelCaseBaseModel):
 
 
 class AccountResponse(CamelCaseBaseModel):
-    id: int
+    public_account_id: str
     user_id: str
     account_name: str
     category_id: int
@@ -48,19 +49,19 @@ class AccountResponse(CamelCaseBaseModel):
         from_attributes = True
 
 
-class AccountCreateResponse(AccountCreate):
-    id: int
-    user_id: int
-
-
-class AccountUpdateResponse(AccountUpdate):
-    id: int
-    user_id: int
-
-
 class AccountCategoryResponse(CamelCaseBaseModel):
-    total: int
-    categories: List[AccountCategory]
+    id: int
+    account_type: str
+    description: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class AccountSummaryResponse(CamelCaseBaseModel):
+    user_id: str
+    total_balance_inr: CurrencyDecimal
+    total_balance_usd: CurrencyDecimal
 
     class Config:
         from_attributes = True

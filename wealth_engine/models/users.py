@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 
 class User(SQLModel, table=True):
     __tablename__ = "users"
+    __table_args__ = {"schema": "wealth_engine"}
 
     id: str = Field(unique=True, index=True, primary_key=True)
     name: str = Field(index=True, unique=True)

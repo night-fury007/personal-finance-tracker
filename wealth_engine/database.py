@@ -3,13 +3,14 @@ from typing import Generator
 import os
 
 # SQLite database file stored locally inside the project root
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./wealth_engine.db")
+# DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./wealth_engine.db")
+DATABASE_URL = "postgresql+psycopg://@localhost:5432/wealth_engine"
+
 
 # connect_args={"check_same_thread": False} is required for SQLite in FastAPI multi-threaded environments
 engine = create_engine(
     DATABASE_URL,
-    echo=False,
-    connect_args={"check_same_thread": False}
+    echo=False
 )
 
 def init_db() -> None:

@@ -1,13 +1,13 @@
+import uuid
 from datetime import datetime
+from typing import Any
 from zoneinfo import ZoneInfo
-from typing import Annotated, Any
-from pydantic import BeforeValidator, PlainSerializer
 
 DATE_TIME_FORMAT = "%d-%m-%Y-%H:%M:%S"
 IST = ZoneInfo("Asia/Kolkata")
 
 
-def parse_custom_datetime(v: Any) -> datetime | None:
+def parse_custom_datetime(v: Any) -> None | datetime | str | Any:
     if v is None or isinstance(v, datetime):
         return v
     if isinstance(v, str):
@@ -35,9 +35,14 @@ def format_to_ist_string(v: datetime | None) -> str | None:
     return ist_datetime.strftime(DATE_TIME_FORMAT)
 
 
-# Your updated reusable type for API responses
-CustomDateTimeIST = Annotated[
-    datetime,
-    BeforeValidator(parse_custom_datetime),
-    PlainSerializer(format_to_ist_string, return_type=str | None, when_used="json-unless-none")
-]
+def generate_public_account_id() -> str:
+    """Generates a unique public identifier for entities."""
+    return str(uuid.uuid4())
+
+
+def calculate_page_offset(
+        page: int,
+        limit: int,
+) -> int:
+    """Calculates the page offset."""
+    return max(0, (page - 1) * limit) if page > 0 else 0

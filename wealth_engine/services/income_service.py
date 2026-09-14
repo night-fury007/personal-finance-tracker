@@ -1,51 +1,62 @@
-from typing import Sequence, Any, Optional
-from sqlmodel import Session, select
+from typing import Any, Optional
+
 from sqlalchemy.exc import IntegrityError
+from sqlmodel import Session, select
+
+from wealth_engine.adapter.IncomeAdapter import IncomeAdapter
+from wealth_engine.common.pginated_response import PaginatedResponse
+from wealth_engine.common.utils import calculate_page_offset
+from wealth_engine.core.exceptions import NotFoundException, DatabaseOperationException, BadRequestException
+from wealth_engine.core.logger import logger
 from wealth_engine.models import Income
-from wealth_engine.schemas.income_schema import IncomeCreate, IncomeUpdate
-from wealth_engine.core.exceptions import NotFoundException, DatabaseOperationException
+from wealth_engine.repository import AccountRepository
+from wealth_engine.repository.incomes_repository import IncomeRepository
+from wealth_engine.schemas.income_schema import IncomeCreate, IncomeUpdate, IncomeResponse
 
 
 class IncomeService:
     @staticmethod
-    def create_income(db: Session, user_id: int, income_in: IncomeCreate) -> Income:
-        """
-        Creates and persists a new income record securely for a tenant user.
-        """
+    def create_income(
+            db: Session,
+            user_id: str,
+            income_in: IncomeCreate
+    ) -> Optional[IncomeResponse]:
         try:
-            income = Income(
-                user_id=user_id,
-                amount=income_in.amount,
-                currency=income_in.currency,
-                income_date=income_in.income_date,
-                source=income_in.source,
-                description=income_in.description
-            )
-            db.add(income)
-            db.commit()
-            db.refresh(income)
-            return income
-        except IntegrityError as e:
-            db.rollback()
-            raise DatabaseOperationException(
-                message="Database integrity constraint violated while creating income."
-            ) from e
+            logger.info(f"Creating income for {user_id}")
+            account = AccountRepository.get_by_id_and_user(db=db,public_account_id=income_in.public_account_id, user_id=user_id)
+            logger.info(f"account: {account}")
+            if account is None or not account.is_active:
+                raise NotFoundException(message="Target account not found")
+            if account.currency != income_in.currency:
+                raise BadRequestException(message="Income currency must match account currency")
+            income = IncomeAdapter.format_create_income_data(user_id=user_id, income_in=income_in, account=account)
+            created_income = IncomeRepository.create_or_update_income(db=db, income=income)
+            return IncomeAdapter.format_income_response(created_income)
+        except DatabaseOperationException as e:
+            logger.error(f"Database operation failed while creating income for {user_id}: {e}")
+            raise DatabaseOperationException(message=f"Failed to get income: {str(e)}") from e
         except Exception as e:
-            db.rollback()
-            raise DatabaseOperationException(message=f"Failed to create income: {str(e)}") from e
+            logger.exception(f"Unexpected error occurred while creating income for {user_id}: {str(e)}")
+            raise e
 
     @staticmethod
-    def get_incomes_by_user(db: Session, user_id: int, skip: int = 0, limit: int = 100) -> Sequence[Income]:
-        """
-        Retrieves a paginated list of income streams belonging to a tenant user.
-        """
-        statement = (
-            select(Income)
-            .where(Income.user_id == user_id)
-            .offset(skip)
-            .limit(limit)
-        )
-        return db.exec(statement).all()
+    def get_incomes_by_user(
+            db: Session,
+            user_id: str,
+            page: int = 1,
+            limit: int = 10
+    ) -> PaginatedResponse[IncomeResponse]:
+        try:
+            logger.info(f"Getting incomes for {user_id}")
+            offset = calculate_page_offset(page, limit)
+            items, total = IncomeRepository.get_by_user_id(db=db, user_id=user_id, offset=offset, limit=limit)
+            return IncomeAdapter.format_paginated_income_response(items, total, page, limit)
+        except DatabaseOperationException as e:
+            logger.error(f"Database operation failed while fetching account for {user_id}: {e}")
+            raise DatabaseOperationException(message=f"Failed to get account: {str(e)}") from e
+        except Exception as e:
+            logger.exception(f"Unexpected error occurred while fetching account for {user_id}: {str(e)}")
+            raise e
 
     @staticmethod
     def get_income_by_id(db: Session, income_id: int, user_id: int) -> Optional[Any]:

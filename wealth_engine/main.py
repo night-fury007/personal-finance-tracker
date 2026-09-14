@@ -1,9 +1,10 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Depends, Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, Response
 from sqlmodel import Session, select
-from starlette.responses import JSONResponse
 
 from wealth_engine.core.exceptions import WealthEngineException
 from wealth_engine.database import init_db, get_db
@@ -37,9 +38,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 # --- Global Custom Exception Handlers ---
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={
+            "error": True,
+            "message": "Validation error in payload",
+            "details": exc.errors(),
+            "status_code": 422
+        }
+    )
+
+
 @app.exception_handler(WealthEngineException)
-async def wealth_engine_exception_handler(request: Request, exc: WealthEngineException) -> JSONResponse:
+async def wealth_engine_exception_handler(request: Request, exc: WealthEngineException) -> Response | JSONResponse:
+    if exc.status_code == status.HTTP_204_NO_CONTENT:
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
     return JSONResponse(
         status_code=exc.status_code,
         content={
@@ -66,8 +84,10 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
 
 # Mount Routers
 # app.include_router(auth.router)
-# app.include_router(income.router)
+app.include_router(income.router)
 app.include_router(accounts.router)
+
+
 # app.include_router(investments.router)
 # app.include_router(expenses.router)
 # app.include_router(analytics.router)

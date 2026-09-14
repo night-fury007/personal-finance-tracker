@@ -9,6 +9,7 @@ if TYPE_CHECKING:
 
 class InvestmentCategory(SQLModel, table=True):
     __tablename__ = "investment_categories"
+    __table_args__ = {"schema": "wealth_engine"}
 
     id: Optional[int] = Field(default=None, primary_key=True, index=True)
     investment_type: str = Field(max_length=50, unique=True, index=True)
@@ -22,10 +23,11 @@ class InvestmentCategory(SQLModel, table=True):
 
 class Investment(SQLModel, table=True):
     __tablename__ = "investments"
+    __table_args__ = {"schema": "wealth_engine"}
 
     id: Optional[int] = Field(default=None, primary_key=True, index=True)
-    user_id: str = Field(foreign_key="users.id", index=True)
-    category_id: int = Field(foreign_key="investment_categories.id", index=True)
+    user_id: str = Field(foreign_key="wealth_engine.users.id", index=True)
+    category_id: int = Field(foreign_key="wealth_engine.investment_categories.id", index=True)
     amount: Decimal = Field(default=Decimal("0.00"))
     currency: str = Field(max_length=3)
     investment_date: date = Field(index=True)

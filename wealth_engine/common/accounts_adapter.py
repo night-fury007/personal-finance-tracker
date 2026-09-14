@@ -1,9 +1,11 @@
 from datetime import datetime, timezone
-from typing import Dict, Any, Sequence, List
+from typing import Sequence
 
 from wealth_engine.common.pginated_response import PaginatedResponse
+from wealth_engine.common.utils import generate_public_account_id
 from wealth_engine.models import Account, AccountCategory
-from wealth_engine.schemas.account_schema import AccountCreate, AccountUpdate, AccountResponse, AccountCategoryResponse
+from wealth_engine.schemas.account_schema import AccountCreate, AccountUpdate, AccountResponse, AccountCategoryResponse, \
+    AccountSummaryResponse
 
 
 class AccountAdapter:
@@ -14,6 +16,7 @@ class AccountAdapter:
     ) -> Account:
         return Account(
             user_id=user_id,
+            public_account_id=generate_public_account_id(),
             account_name=account_in.account_name,
             category_id=account_in.category_id,
             currency=account_in.currency,
@@ -39,7 +42,7 @@ class AccountAdapter:
             acc: Account
     ) -> AccountResponse:
         return AccountResponse(
-            id=acc.id,
+            public_account_id=acc.public_account_id,
             user_id=acc.user_id,
             account_name=acc.account_name,
             category_id=acc.category_id,
@@ -71,8 +74,17 @@ class AccountAdapter:
     @staticmethod
     def format_category_response(
             categories: Sequence[AccountCategory]
-    ) -> AccountCategoryResponse:
-        return AccountCategoryResponse(
-            total=len(categories),
-            categories=list(categories)
+    ) -> list[AccountCategoryResponse]:
+        return [AccountCategoryResponse.model_validate(cat) for cat in categories]
+
+    @staticmethod
+    def format_account_summary_response(
+            user_id: str,
+            total_balance_inr,
+            total_balance_usd,
+    ) -> AccountSummaryResponse:
+        return AccountSummaryResponse(
+            user_id=user_id,
+            total_balance_inr=total_balance_inr,
+            total_balance_usd=total_balance_usd,
         )

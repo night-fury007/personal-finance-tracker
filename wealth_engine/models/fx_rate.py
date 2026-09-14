@@ -7,6 +7,7 @@ from sqlmodel import SQLModel, Field
 
 class FXRate(SQLModel, table=True):
     __tablename__ = "fx_rates"
+    __table_args__ = {"schema": "wealth_engine"}
 
     id: Optional[int] = Field(default=None, primary_key=True)
     rate_date: date = Field(index=True, unique=True)

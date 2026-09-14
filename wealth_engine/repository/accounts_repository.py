@@ -1,6 +1,6 @@
-from typing import Tuple, Sequence, Optional, List, Any
+from decimal import Decimal
+from typing import Tuple, Sequence, Optional, Any
 
-from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select, func, col
 
 from wealth_engine.core.exceptions import DatabaseOperationException
@@ -30,8 +30,10 @@ class AccountRepository:
             account: Account
     ) -> Optional[Account]:
         try:
-            db.delete(account)
+            account.is_active = False
+            db.add(account)
             db.commit()
+            db.refresh(account)
             return account
         except Exception as e:
             db.rollback()
@@ -40,11 +42,17 @@ class AccountRepository:
     @staticmethod
     def get_by_id_and_user(
             db: Session,
-            account_id: int,
+            public_account_id: str,
             user_id: str
     ) -> Optional[Account]:
         try:
-            statement = select(Account).where(Account.id == account_id, Account.user_id == user_id)
+            statement = (
+                select(Account)
+                .where(
+                    Account.public_account_id == public_account_id,
+                    Account.user_id == user_id,
+                    Account.is_active == True)
+            )
             return db.exec(statement).first()
         except Exception as e:
             raise DatabaseOperationException(
@@ -61,7 +69,7 @@ class AccountRepository:
         try:
             statement = (
                 select(Account)
-                .where(Account.user_id == user_id)
+                .where(Account.user_id == user_id, Account.is_active == True)
                 .offset(offset)
                 .limit(limit)
             )
@@ -69,7 +77,7 @@ class AccountRepository:
             count_statement = (
                 select(func.count())
                 .select_from(Account)
-                .where(Account.user_id == user_id)
+                .where(Account.user_id == user_id, Account.is_active == True)
             )
 
             items = db.exec(statement).all()
@@ -89,9 +97,9 @@ class AccountRepository:
             account_type: Optional[str] = None
     ) -> Tuple[Sequence[Account], int]:
         try:
-            query = select(Account).join(AccountCategory).where(Account.user_id == user_id)
+            query = select(Account).join(AccountCategory).where(Account.user_id == user_id, Account.is_active == True)
             count_query = select(func.count()).select_from(Account).join(AccountCategory).where(
-                Account.user_id == user_id)
+                Account.user_id == user_id, Account.is_active == True)
 
             if search:
                 search_filter = col(Account.account_name).ilike(f"%{search}%")
@@ -116,8 +124,33 @@ class AccountRepository:
     @staticmethod
     def get_all_categories(db: Session) -> Sequence[Any]:
         try:
-            statement = select(AccountCategory)
+            statement = select(AccountCategory).where(AccountCategory.id != 1)
             categories = db.exec(statement).all()
             return categories
         except Exception as e:
             raise DatabaseOperationException(message=f"Failed to fetch account by search or filter : {str(e)}") from e
+
+    @staticmethod
+    def get_account_summary_by_userid(
+            db: Session,
+            user_id: str,
+    ) -> Sequence[Any]:
+        try:
+            # Calculate sum for INR accounts
+            stmt_inr = select(func.coalesce(func.sum(Account.balance), Decimal("0.00"))).where(
+                Account.user_id == user_id,
+                Account.currency == "INR",
+                Account.is_active == True
+            )
+            total_inr = db.exec(stmt_inr).one()
+
+            stmt_usd = select(func.coalesce(func.sum(Account.balance), Decimal("0.00"))).where(
+                Account.user_id == user_id,
+                Account.currency == "USD",
+                Account.is_active == True
+            )
+            total_usd = db.exec(stmt_usd).one()
+
+            return total_inr, total_usd
+        except Exception as e:
+            raise DatabaseOperationException(message=f"Failed to fetch account summary by user id : {str(e)}") from e
