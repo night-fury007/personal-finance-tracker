@@ -4,6 +4,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from wealth_engine.adapter.IncomeAdapter import IncomeAdapter
+from wealth_engine.common.accounts_adapter import AccountAdapter
 from wealth_engine.common.pginated_response import PaginatedResponse
 from wealth_engine.common.utils import calculate_page_offset
 from wealth_engine.core.exceptions import NotFoundException, DatabaseOperationException, BadRequestException
@@ -11,7 +12,9 @@ from wealth_engine.core.logger import logger
 from wealth_engine.models import Income
 from wealth_engine.repository import AccountRepository
 from wealth_engine.repository.incomes_repository import IncomeRepository
+from wealth_engine.schemas.account_schema import AccountUpdate
 from wealth_engine.schemas.income_schema import IncomeCreate, IncomeUpdate, IncomeResponse
+from wealth_engine.services.account_service import AccountService
 
 
 class IncomeService:
@@ -29,6 +32,10 @@ class IncomeService:
                 raise NotFoundException(message="Target account not found")
             if account.currency != income_in.currency:
                 raise BadRequestException(message="Income currency must match account currency")
+            account_update = AccountUpdate(public_account_id=income_in.public_account_id, balance=account.balance+income_in.amount)
+            formatted_account_data = AccountAdapter.format_update_account_data(account_in=account_update, account=account)
+            updated_account = AccountRepository.create_or_update_account(db, formatted_account_data)
+            logger.info(f"Account balance updated : {updated_account.balance}")
             income = IncomeAdapter.format_create_income_data(user_id=user_id, income_in=income_in, account=account)
             created_income = IncomeRepository.create_or_update_income(db=db, income=income)
             return IncomeAdapter.format_income_response(created_income)

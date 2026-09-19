@@ -18,7 +18,7 @@ class IncomeAdapter:
             user_id=user_id,
             category_id=income_in.category_id,
             account_id=account.id,
-            amount=account.balance + income_in.amount,
+            amount=income_in.amount,
             currency=income_in.currency,
             income_date=income_in.income_date,
             description=income_in.description,
